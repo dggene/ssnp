@@ -9,23 +9,24 @@ params.spidex_file="$database/spidex_public_noncommercial_v1_0.tab.gz"
 Channel.fromPath(params.input).into{input_vcf0;input_vcf1;input_vcf2}
 
 process silva{
-    container="registry.cn-hangzhou.aliyuncs.com/njdg/ssnp"
-    
+    container="ssnp"
+
     input:
         file 'input.vcf' from input_vcf0
     
     output:
         file 'silva_result.tsv'
-        file '*.mat'
+        file 'tmp/*.mat'
     """
-    export PATH=${params.silva_path}:$PATH
+    which python
+    export PATH=${params.silva_path}:\$PATH
     silva-preprocess ./tmp input.vcf
     silva-run ./tmp >silva_result.tsv
     """
 
 }
-
 process gwasdb2{
+    conda="/home/pyl/.conda/envs/ssnp_env"
     input:
         file 'input.vcf' from input_vcf1
 
@@ -36,6 +37,7 @@ process gwasdb2{
 }
 
 process spidex{
+    conda="/home/pyl/.conda/envs/ssnp_env"
     input:
         file 'input.vcf' from input_vcf2
 
