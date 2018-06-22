@@ -9,7 +9,8 @@ params.spidex_file="$database/spidex_public_noncommercial_v1_0.tab.gz"
 Channel.fromPath(params.input).into{input_vcf0;input_vcf1;input_vcf2}
 
 process silva{
-    container="bioconductor/release_core2"
+    container="registry.cn-hangzhou.aliyuncs.com/njdg/ssnp"
+    
     input:
         file 'input.vcf' from input_vcf0
     

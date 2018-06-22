@@ -16,6 +16,12 @@ USER biodocker
 
 RUN conda install -c r r-randomforest -y
 
+USER root
+
+RUN apt-get install -y \
+    uuid-runtime && \
+    apt-get clean
+
 WORKDIR /data/
 
 CMD ["/bin/bash"]
