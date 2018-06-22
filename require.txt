@@ -1,0 +1,4 @@
+#anaconda
+bedops== 2.4.35 
+htslib==1.8
+samtools==1.8
