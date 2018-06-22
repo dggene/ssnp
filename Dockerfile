@@ -19,7 +19,7 @@ RUN conda install -c r r-randomforest -y
 USER root
 
 RUN apt-get install -y \
-    uuid-runtime && \
+    uuid && \
     apt-get clean
 
 WORKDIR /data/
