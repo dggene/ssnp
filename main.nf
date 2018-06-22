@@ -18,7 +18,6 @@ process silva{
         file 'silva_result.tsv'
         file 'tmp/*.mat'
     """
-    which python
     export PATH=${params.silva_path}:\$PATH
     silva-preprocess ./tmp input.vcf
     silva-run ./tmp >silva_result.tsv
