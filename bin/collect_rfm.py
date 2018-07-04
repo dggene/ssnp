@@ -1,3 +1,4 @@
+#coding=utf-8
 import argparse
 import sys
 import re
@@ -13,19 +14,23 @@ def run(args):
             line=lines[i]
             if '>' not in line:
                 continue
-            rfm=float(lines[i+1].replace('Translation Rate = ',''))
-            cdsLen=int(line.split('|')[4])
-            if 'MT' in line:
-                mt_rfm=rfm
-            else:
-                wt_rfm=rfm
-
-    rfm_rate=mt_rfm/wt_rfm
-    rfm_rate_lg=rfm_rate**cdsLen
+            if 'Translation Rate = 'in lines[i+1]:
+                rfm=float(lines[i+1].replace('Translation Rate = ',''))
+                cdsLen=int(line.split('|')[4])
+                if 'MT' in line:
+                    mt_rfm=rfm
+                else:
+                    wt_rfm=rfm
 
     with open(args.output,'w') as f:
         f.write('rfm_wt\trfm_mt\trfm_rate\trfm_rate_lg\n')
-        f.write('%f\t%f\t%f\t%f'%(wt_rfm,mt_rfm,rfm_rate,rfm_rate_lg))
+        if wt_rfm and mt_rfm:
+            rfm_rate=mt_rfm/wt_rfm
+            rfm_rate_lg=rfm_rate**cdsLen
+            f.write('%f\t%f\t%f\t%f'%(wt_rfm,mt_rfm,rfm_rate,rfm_rate_lg))
+        else:
+            f.write('NA\tNA\tNA\tNA')
+
 
 def main():
     ''' Main entry '''
