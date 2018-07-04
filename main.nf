@@ -1,5 +1,6 @@
 #!/usr/bin/env nextflow
 params.input="$baseDir/test/test_input.vcf"
+params.output='output'
 database="/DG/database/pub/ssnp"
 params.silva_path="$database/silva"
 
@@ -57,6 +58,7 @@ process spidex{
 
 process cadd{
     conda="pysam"
+    publishDir {params.output}
     input:
         file('input.vcf') from input_vcf2
     output:
@@ -80,11 +82,11 @@ process getSeq{
         row.ConsDetail=~'synonymous'
 
     output:
-        set  file('wt.fasta'),file('mt.fasta') into seq_files
-        file('transcript.id') into transcriptid_file
-        file('seqss.txt') into rnasnp_input
-        file('remurna.seq') into remurna_input
-        set file('rnafold_wt.seq'),file('rnafold_mt.seq') into rnafold_input
+        set  file('wt.fasta'),file('mt.fasta') optional true into seq_files
+        file('transcript.id') optional true into transcriptid_file
+        file('seqss.txt') optional true into rnasnp_input
+        file('remurna.seq') optional true into remurna_input
+        set file('rnafold_wt.seq'),file('rnafold_mt.seq') optional true into rnafold_input
 
     script:
     def transcriptid=row.FeatureID
@@ -175,6 +177,7 @@ process rfm{
     """
     echo \$PWD
     printf "GLOBAL_RATE\t0.06" > initRateFile
+
     cat wt.seq mt.seq >join.seq
     java -jar $baseDir/bin/rfm/RFMapp.jar $database/codon/huCodonFile.txt join.seq 25 initRateFile . 0 0
     python $baseDir/bin/collect_rfm.py -i RFM_Result.txt -o rfm.res
@@ -198,4 +201,4 @@ process paste_res{
     paste transcript.id rnasnp.res remurna.res rnafold.res hcu.res rscu.res rfm.res >paste.res
     """
 }
-paste_res.collectFile(name:'tran_score.txt',keepHeader:true).subscribe{println it}
+paste_res.collectFile(name:"${params.output}/tran_score.txt",keepHeader:true).subscribe{println it}

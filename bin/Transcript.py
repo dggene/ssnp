@@ -54,6 +54,9 @@ class Transcript(object):
         for record in SeqIO.parse(self.fastaDb, 'fasta'):
             if self.transcriptId in record.id:
                 self.seqRecord = record
+                if 'N' in str(record.seq):
+                    print('transcript_id:%s has invalid seq:%s'%(self.transcriptId,record.seq))
+                    exit(0)
                 return
         print('non transcript_id%s: found in fasta_db:%s' %
                         (self.transcriptId, self.fastaDb))
@@ -118,6 +121,7 @@ class Transcript(object):
         return (''.join(seq), new_loc)
 
     def render_seq_to_file(self, seq_id, seq, filename, footer=''):
+        #seq=seq.replace('N','')
         with open(filename, 'w') as f:
             f.write(seq_id+'\n')
             f.write(seq+'\n')
