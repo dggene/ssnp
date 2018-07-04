@@ -202,3 +202,34 @@ process paste_res{
     """
 }
 paste_res.collectFile(name:"${params.output}/tran_score.txt",keepHeader:true).subscribe{println it}
+
+
+workflow.onComplete {
+    def msg="""
+Pipeline execution summary
+---------------------------
+ScriptId        :   ${workflow.scriptId}
+ScriptName      :   ${workflow.scriptName}
+scriptFile      :   ${workflow.scriptFile}
+Repository      :   ${workflow.repository?:'-'}
+Revision        :   ${workflow.revision?:'-'}
+ProjectDir      :   ${workflow.projectDir}
+LaunchDir       :   ${workflow.launchDir}
+ConfigFiles     :   ${workflow.configFiles}
+Container       :   ${workflow.container}
+CommandLine     :   ${workflow.commandLine}
+Profile         :   ${workflow.profile}
+RunName         :   ${workflow.runName}
+SessionId       :   ${workflow.sessionId}
+Resume          :   ${workflow.resume}
+Start           :   ${workflow.start}
+
+Completed at    :   ${workflow.complete}
+Duration        :   ${workflow.duration}
+Success         :   ${workflow.success}
+Exit status     :   ${workflow.exitStatus}
+ErrorMessage    :   -
+Error report    :   -
+"""
+    log.info(msg)
+}
