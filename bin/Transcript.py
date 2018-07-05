@@ -51,6 +51,7 @@ class Transcript(object):
         """
         根据fasta数据库获取bioseq的序列对象
         """
+        """
         for record in SeqIO.parse(self.fastaDb, 'fasta'):
             if self.transcriptId in record.id:
                 self.seqRecord = record
@@ -61,6 +62,19 @@ class Transcript(object):
         print('non transcript_id%s: found in fasta_db:%s' %
                         (self.transcriptId, self.fastaDb))
         exit(0)
+        """
+        #使用idx索引查找序列对象
+        idx=SeqIO.index_db(self.fastaDb+'.idx')
+        if self.transcriptId in idx:
+            record=idx[self.transcriptId]
+            self.seqRecord=record
+            if 'N' in str(record.seq):
+                print('transcript_id:%s seq contains N'%(self.transcriptId))
+                exit(0)
+            return
+        else:
+            exit(0)
+
 
     def _init_record_strand(self):
         """

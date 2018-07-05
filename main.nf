@@ -168,6 +168,7 @@ process rscu{
     """
 }
 
+/*
 process rfm{
     input:
         set file('wt.seq'),file('mt.seq') from seq_files3
@@ -183,7 +184,7 @@ process rfm{
     python $baseDir/bin/collect_rfm.py -i RFM_Result.txt -o rfm.res
     """
 }
-
+*/
 process paste_res{
     input:
         file('transcript.id') from transcriptid_file
@@ -192,13 +193,13 @@ process paste_res{
         file('rnafold.res') from rnafold_res
         file('hcu.res') from hcu_res
         file('rscu.res') from rscu_res
-        file('rfm.res') from rfm_res
+        //file('rfm.res') from rfm_res
     output:
         file('paste.res') into paste_res
     script:
     """
     echo \$PWD
-    paste transcript.id rnasnp.res remurna.res rnafold.res hcu.res rscu.res rfm.res >paste.res
+    paste transcript.id rnasnp.res remurna.res rnafold.res hcu.res rscu.res > paste.res
     """
 }
 paste_res.collectFile(name:"${params.output}/tran_score.txt",keepHeader:true).subscribe{println it}
