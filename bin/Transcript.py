@@ -100,6 +100,8 @@ class Transcript(object):
     def cut_seq(self, seq, cdsLoc, length):
         '''
         获取指定序列按照长度切割的结果
+        如果length是2的倍数,截取的为向左多偏移一个的数据
+        如果length不是2的倍数，左右各截取：length//2的长度
         '''
         seq_list = list(seq)
         seq = ''
@@ -113,8 +115,9 @@ class Transcript(object):
                 seq = seq_list[0-length:]
                 new_loc = length-(count-cdsLoc)
             else:
-                seq = seq_list[cdsLoc-length//2:cdsLoc+length//2]
-                new_loc = length//2
+                left=cdsLoc-length//2-1
+                seq = seq_list[left:left+length]
+                new_loc = length//2+1
         else:
             seq = seq_list
             new_loc = cdsLoc

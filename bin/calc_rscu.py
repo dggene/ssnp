@@ -156,13 +156,20 @@ def calc_rscu(seq_record):
             count[codon]=1
     cdsLoc=int(cdsLoc)
     #获取当前突变位置的密码子
-    the_codon=codons[cdsLoc//3]
+    if cdsLoc % 3 == 0:
+        the_codon=codons[cdsLoc//3-1]
+    else:
+        the_codon=codons[cdsLoc//3]
     count_the=count[the_codon]
 
     for codon in codons:
         if STANDARD_CODON[codon]==STANDARD_CODON[the_codon]:
             count_syn+=1
+    
     n=CODON_NUM[the_codon]
+    print(the_codon)
+    print(count)
+    print('count_the:%d,count_syn:%d,n:%d'%(count_the,count_syn,n))
     rscu=n*count_the/count_syn
     
     return rscu

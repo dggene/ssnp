@@ -89,7 +89,10 @@ def calc_hcu(seq_record, cf_file):
      cdsLen,ttype) = seq_record.description.split('|')
     codons = re.findall(r'\w{3}', str(seq_record.seq))
     cdsLoc=int(cdsLoc)
-    the_codon = codons[cdsLoc//3]
+    if cdsLoc % 3 == 0:
+        the_codon=codons[cdsLoc//3-1]
+    else:
+        the_codon=codons[cdsLoc//3]
     n = CODON_NUM[the_codon]
     frq = get_frq(the_codon, cf_file)
     hcu = n*frq

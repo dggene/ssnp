@@ -100,7 +100,7 @@ process getSeq{
 seq_files.into{seq_files0;seq_files1;seq_files2;seq_files3}
 process rnasnp{
     conda="rnasnp"
-    validExitStatus 0,160
+    validExitStatus 0,160,192
     input:
         set file('wt.fasta'),file('mt.fasta') from seq_files0
         file('seqss.txt') from rnasnp_input
@@ -109,7 +109,7 @@ process rnasnp{
     script:
     """
     echo \$PWD
-    RNAsnp -f wt.fasta -s seqss.txt >rnasnp.res
+    RNAsnp -f wt.fasta -s seqss.txt -m 2 >rnasnp.res
     """
 }
 
