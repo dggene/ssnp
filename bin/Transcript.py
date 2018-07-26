@@ -122,10 +122,10 @@ class Transcript(object):
         new_loc = cdsLoc
         count = len(seq_list)
         if count > length:
-            if cdsLoc < length//2:
+            if cdsLoc <= length//2:
                 seq = seq_list[0:length]
                 new_loc = cdsLoc
-            elif (count-cdsLoc) < length//2:
+            elif (count-cdsLoc) <= length//2:
                 seq = seq_list[0-length:]
                 new_loc = length-(count-cdsLoc)
             else:

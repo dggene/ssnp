@@ -10,3 +10,7 @@
         executor='pbs'
         queue='nextflow'
     }
+
+# 环境依赖
+
+需要安装有anaconda环境
