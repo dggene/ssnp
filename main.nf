@@ -1,5 +1,6 @@
 #!/usr/bin/env nextflow
-params.input="$baseDir/test/test_input.vcf"
+params.input="$baseDir/test/pathogenic.vcf"
+//params.input="$baseDir/test/test_input.vcf"
 params.output='output'
 database="/DG/database/pub/ssnp"
 params.silva_path="$database/silva"
@@ -7,72 +8,152 @@ params.silva_path="$database/silva"
 params.gwasdb2_file="$database/gwasdb_20150819_annotation.gz"
 params.spidex_file="$database/spidex_public_noncommercial_v1_0.tab.gz"
 
-Channel.fromPath(params.input).into{input_vcf0;input_vcf1;input_vcf2}
+params.eigen_database="$database/eigen/eigen_noncoding"
+params.annovar_database="/DG/database/genomes/Homo_sapiens/hg19/annovar"
 
-/*
-process silva{
-    container="ssnp"
+
+Channel.fromPath(params.input).into{input_vcf0;input_vcf1;input_vcf2;input_vcf3}
+
+
+process vcftobed{
+    conda='bedops'
 
     input:
         file 'input.vcf' from input_vcf0
     
     output:
-        file 'silva_result.tsv'
-        file 'tmp/*.mat'
-    """
-    export PATH=${params.silva_path}:\$PATH
-    silva-preprocess ./tmp input.vcf
-    silva-run ./tmp >silva_result.tsv
-    """
-}
-*/
-
-input_vcf1.splitCsv(header:['chrom','pos','id','ref','alt','qual','filter','info'],skip:1,sep:'\t')
-    .into{vcfs0;vcfs1}
-
-/*
-process gwasdb2{
-    conda="/home/pyl/.conda/envs/ssnp_env"
-    input:
-        file 'input.vcf' from input_vcf1
-
-    """
+        file 'input.bed' into output_bed
+    
+    script:
+    """   
     echo \$PWD
     convert2bed --input=VCF < input.vcf > input.bed
-    tabix ${params.gwasdb2_file} -R input.bed>gwasdb_res.tsv
+    """
+}
+
+output_bed.into{input0_bed;input1_bed;input2_bed;input3_bed;input4_bed}
+
+process gwasdb2{
+    conda="tabix"
+    input:
+        file 'input.bed' from input0_bed
+    
+    output:
+        file 'gwasdb_res.tsv' into gwasdb_res
+
+    script:
+    """
+    echo \$PWD
+    zcat ${params.gwasdb2_file} |head -1 >head.txt
+    tabix ${params.gwasdb2_file} -B input.bed > gwasdb_res_sub.tsv
+    cat head.txt gwasdb_res_sub.tsv > gwasdb_res.tsv
     """
 }
 
 process spidex{
-    conda="/home/pyl/.conda/envs/ssnp_env"
+    conda="tabix"
     input:
-        file 'input.vcf' from input_vcf2
+        file 'input.bed' from input1_bed
 
+    output:
+        file 'spidex_res.tsv' into spidex_res
+
+    script:
     """
         echo \$PWD
-        convert2bed --input=VCF <input.vcf>input.bed
-        tabix ${params.spidex_file} -R input.bed>spidex_res.tsv
+        zcat ${params.spidex_file} |head -1 > head.txt
+        tabix ${params.spidex_file} -B input.bed > spidex_res_sub.tsv
+        cat head.txt spidex_res_sub.tsv > spidex_res.tsv
     """
 }
-*/
+
+
+process eigen{
+    conda="r-optparse tabix"
+
+    input:
+        file 'input.bed' from input2_bed
+    
+    output:
+        file 'eigen_res.tsv' into eigen_res
+
+    script:
+    """
+        echo \$PWD  
+        Rscript $baseDir/bin/extract_Eigenscores.R -i input.bed -d ${params.eigen_database}
+        cat ${params.eigen_database}/eigen_head.txt  eigen_score_* > eigen_res.tsv 
+    """
+}
+
+
+process annovar{
+
+    input:
+        file 'input.vcf' from input_vcf3
+    
+    output:
+        file 'out.hg19_multianno.csv' into annovar_res
+
+    script:
+    """
+    echo \$PWD 
+    perl $baseDir/bin/convert2annovar.pl -format vcf4 input.vcf > input.avinput
+    perl $baseDir/bin/table_annovar.pl --remove --otherinfo --csvout --buildver hg19 \
+        -protocol refGene,phastConsElements46way,genomicSuperDups,esp6500siv2_all,1000g2015aug_all,1000g2015aug_eas,avsnp147,avsift,dbnsfp33a,caddgt20,clinvar_20170130 \
+        -operation g,r,r,f,f,f,f,f,f,f,f \
+        input.avinput \
+        ${params.annovar_database} \
+        -nastring NA \
+        --outfile out
+    """
+}
+
+
+process silva{
+    container="ssnp"
+
+    input:
+        file 'input.vcf' from input_vcf1
+    
+    output:
+        file 'silva_result_final.tsv' into silva_res
+    
+    script:
+    """
+    export PATH=${params.silva_path}:\$PATH
+    silva-preprocess ./tmp input.vcf
+    silva-run ./tmp >silva_temp_result.tsv
+    sed  -e '1d' -e 's/#//' -e 's/score/silva_score/' silva_temp_result.tsv |awk -F '\\t' '{for(i=1;i<11;i++)printf \$i"\\t";printf("\\n")}' > silva_result.tsv
+    paste silva_result.tsv ./tmp/input.mat   >  silva_temp_result_final.tsv
+    sed  -e 's/?//g'  -e 's/#//g' silva_temp_result_final.tsv > silva_result_final.tsv
+
+    """
+
+}
+
 
 process cadd{
     conda="pysam"
-    publishDir {params.output}
+
     input:
         file('input.vcf') from input_vcf2
     output:
-        file('res.score') into cadd_score
+        file('res.score') into cadd_res
     script:
    
     """
     echo \$PWD
     sed 's/chr//g' input.vcf > trim_chr.vcf
-    cat trim_chr.vcf|python $baseDir/bin/extractCADDscores.py -p $database/whole_genome_SNVs_inclAnno.tsv.gz>res.score
+    cat trim_chr.vcf|python $baseDir/bin/extractCADDscores.py -p $database/whole_genome_SNVs_inclAnno.tsv.gz>res_temp.score
+    sed 's/#//g' res_temp.score > res.score
     
     """
 }
-cadd_score.splitCsv(header:true,sep:'\t').set{transcripts}
+
+cadd_res.into{cadd_res0;cadd_res1}
+cadd_res0.splitCsv(header:true,sep:'\t').set{transcripts}
+
+
 process getSeq{
     conda="biopython"
     input:
@@ -97,7 +178,9 @@ process getSeq{
     """
 }
 
-seq_files.into{seq_files0;seq_files1;seq_files2;seq_files3}
+seq_files.into{seq_files0;seq_files1;seq_files2;seq_files3;seq_files4}
+transcriptid_file.into {transcriptid_file0;transcriptid_file1}
+
 process rnasnp{
     conda="rnasnp"
     validExitStatus 0,160,192
@@ -113,6 +196,7 @@ process rnasnp{
     """
 }
 
+
 process remuRNA{
     
     input:
@@ -125,6 +209,7 @@ process remuRNA{
     $baseDir/bin/remuRNA remurna.txt >remurna.res
     """
 }
+
 
 process rnafold{
     conda='viennarna'
@@ -141,6 +226,7 @@ process rnafold{
     """        
 }
 
+
 process hcu{
     conda='biopython'
     input:
@@ -153,6 +239,7 @@ process hcu{
     python $baseDir/bin/calc_hcu.py -w wt.seq -m mt.seq -f $database/codon/codon_frequency.txt -o hcu.res
     """
 }
+
 
 process rscu{
     conda='biopython'
@@ -168,41 +255,92 @@ process rscu{
     """
 }
 
-/*
+
+
+process tai{
+    conda="r-optparse"
+
+    input:
+        set file('wt.seq'),file('mt.seq') from seq_files4
+    output:
+        file('tai_res.txt') into tai_res
+    
+    script:
+    """
+    echo \$PWD
+    perl $baseDir/bin/codonM wt.seq wt.m
+    perl $baseDir/bin/codonM mt.seq mt.m
+    Rscript $baseDir/bin/calc_tAi.R  -d $database -b $baseDir
+    """
+}
+
+
 process rfm{
+    conda="r-optparse"
+
     input:
         set file('wt.seq'),file('mt.seq') from seq_files3
+        file('transcriptid.id') from transcriptid_file0
     output:
         file('rfm.res') into rfm_res
     script:
     """
     echo \$PWD
     printf "GLOBAL_RATE\t0.06" > initRateFile
-
     cat wt.seq mt.seq >join.seq
-    java -jar $baseDir/bin/rfm/RFMapp.jar $database/codon/huCodonFile.txt join.seq 25 initRateFile . 0 0
-    python $baseDir/bin/collect_rfm.py -i RFM_Result.txt -o rfm.res
+    Rscript $baseDir/bin/Calc_rfm.R -t transcriptid.id -d $database -b $baseDir
     """
 }
-*/
+
+
 process paste_res{
     input:
-        file('transcript.id') from transcriptid_file
+        file('transcript.id') from transcriptid_file1
         file('rnasnp.res') from rnasnp_res
         file('remurna.res') from remurna_res
         file('rnafold.res') from rnafold_res
         file('hcu.res') from hcu_res
         file('rscu.res') from rscu_res
-        //file('rfm.res') from rfm_res
+        file('tai.res') from tai_res
+        file('rfm.res') from rfm_res
+    
     output:
         file('paste.res') into paste_res
+    
     script:
     """
     echo \$PWD
-    paste transcript.id rnasnp.res remurna.res rnafold.res hcu.res rscu.res > paste.res
+    paste transcript.id rnasnp.res remurna.res rnafold.res tai.res hcu.res rscu.res > paste.res
     """
 }
-paste_res.collectFile(name:"${params.output}/tran_score.txt",keepHeader:true).subscribe{println it}
+
+paste_res.collectFile(name:"${params.output}/trans_score.txt",keepHeader:true).into{trans_res}
+
+
+process merge_res{
+    conda="r-optparse"
+
+    publishDir {params.output}
+    
+    input:
+        file('input.bed') from input4_bed
+        file('trans.res') from trans_res
+        file('gwasdb.res') from gwasdb_res
+        file('spidex.res') from spidex_res
+        file('eigen.res') from eigen_res
+        file('annovar.res') from annovar_res
+        file('cadd.score') from cadd_res1
+        file('silva.score') from silva_res
+
+
+    output:
+        file('all_res.txt') into final_res
+
+    """
+    echo \$PWD
+    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -g gwasdb.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -t trans.res
+    """
+}
 
 
 workflow.onComplete {
