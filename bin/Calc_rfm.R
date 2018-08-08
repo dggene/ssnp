@@ -13,6 +13,7 @@ make_option(c("-b", "--binpath"), type="character", default="input.txt",
                                         
 )
 
+
 opts = parse_args(OptionParser(option_list=option_list))
 
 transcript_id <-read.table(opts$transcriptid,head=TRUE)
