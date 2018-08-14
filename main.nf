@@ -196,7 +196,7 @@ process getSeq{
     def transcriptid=row.FeatureID
     """
     echo \$PWD
-    echo 'chr pos ref alt' '\n'${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} > persnp.txt
+    echo 'chr pos ref alt CDSpos' '\n'${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} ${row.CDSpos} > persnp.txt
     python $baseDir/bin/Transcript.py --ref ${row.Ref} --alt ${row.Alt} --transcriptid ${row.FeatureID} --cdsloc ${row.CDSpos} -f $database/Homo_sapiens.GRCh37.75.cds.all.fa -o .
 
     """
