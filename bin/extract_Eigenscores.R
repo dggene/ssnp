@@ -22,16 +22,28 @@ save.image('test.Rdata')
 if( length(grep('chr',input_bed$V1)) > 0) input_bed$V1 =sub('chr','',input_bed$V1)
 if( length(grep('X',input_bed$V1)) > 0) input_bed$V1 =sub('X','23',input_bed$V1)
 if( length(grep('Y',input_bed$V1)) > 0) input_bed$V1 =sub('Y','24',input_bed$V1)
+if( length(grep('MT',input_bed$V1)) > 0) input_bed$V1 =sub('MT','25',input_bed$V1)
 
 if(length(unique(input_bed$V1)) > 0) {
     run_temp <- lapply( as.numeric(as.character(unique(input_bed$V1))),function(nchr){
         print(nchr)
         if(nchr>=1 && nchr <=22) {
             input_bed_nchr <- subset(input_bed,subset = (V1==nchr))
-            write.table(input_bed_nchr,paste('eigen_input_',nchr,'.bed',sep=''),quote=F,sep='\t',row.names=F,col.names=F)
-            sh <- paste('tabix ',opts$database,'/Eigen_hg19_noncoding_annot_chr',nchr,'.tab.bgz',' -B ',
-                    'eigen_input_',nchr,'.bed',' > ','eigen_score_',nchr,'.txt',sep='')
-            print(sh)
+            #print(nrow(input_bed_nchr))
+            input_region_nchr <- apply (input_bed_nchr,1,function(x){
+                            
+                             trim_blank <- function(x){
+                                 gsub(' +','',x)
+                                 }                            
+                             res <- paste(trim_blank(x[1]),':',trim_blank(x[2]),'-',trim_blank(x[3]),sep='')
+                             return(res)                                                                                            
+                            }) 
+
+            region_all <- paste(input_region_nchr,collapse=' ')  
+
+            sh <- paste('tabix ',opts$database,'/Eigen_hg19_noncoding_annot_chr',nchr,'.tab.bgz ',
+                    region_all,' > ','eigen_score_',nchr,'.txt',sep='')     
+           
             system(sh) }
         
         })    

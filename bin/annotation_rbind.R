@@ -6,7 +6,7 @@ library("optparse")
 option_list <- list(
 make_option(c("-r", "--rawbed"), type="character", default="input.txt",
               help="Input table file to read [default %default]"),
-make_option(c("-g", "--gwasdb"), type="character", default="input.txt",
+make_option(c("-w", "--gwasdb"), type="character", default="input.txt",
               help="gwasdb file to read [default %default]"),              
 make_option(c("-e", "--eigen"), type="character", default="input.txt",
               help="Eigen file to read [default %default]"),
@@ -31,7 +31,7 @@ if(length(grep('chr',raw_res$V1))>0){
     }
 raw_res_by = transform(raw_res,merge=paste(raw_res$V1,raw_res$V3,raw_res$V6,raw_res$V7,sep='_'),merge1=paste(raw_res$V1,raw_res$V3,sep='_'))
 
-
+save.image('test.Rdata')
 gwasdb_res <- read.table(opts$gwasdb,head=T,check.names=F,sep='\t')
 gwasdb_res_by<- transform(gwasdb_res,merge1=paste(gwasdb_res$Chr,gwasdb_res$Pos,sep='_'))
 
@@ -48,7 +48,7 @@ if(length(grep('chr',spidex_res$chromosome))>0){
 spidex_res_by<- transform(spidex_res,merge=paste(spidex_res$chromosome,spidex_res$position,spidex_res$ref_allele,spidex_res$mut_allele,sep='_'))
 
 
-annovar_res <- read.table(opts$annovar,head=T,check.names=F,sep=',')
+annovar_res <- read.csv(opts$annovar,head=T,check.names=F,sep=',')
 annovar_res <- annovar_res[,-ncol(annovar_res)]
 if(length(grep('chr',annovar_res$Chr))>0){
   annovar_res$Chr=gsub('chr','',annovar_res$Chr)
@@ -56,17 +56,26 @@ if(length(grep('chr',annovar_res$Chr))>0){
 annovar_res_by<- transform(annovar_res,merge=paste(annovar_res$Chr,annovar_res$End,annovar_res$Ref,annovar_res$Alt,sep='_'))
 
 cadd_res <- read.table(opts$cadd,head=T,check.names=F,sep='\t')
-cadd_res_by<- transform(cadd_res,merge=paste(cadd_res$'Chrom',cadd_res$Pos,cadd_res$Ref,cadd_res$Alt,sep='_'),check.names=F)
+cadd_res_sub <- subset(cadd_res,(AnnoType=='CodingTranscript' ))
+cadd_res_sub <-cadd_res_sub[!duplicated(cadd_res_sub),]
+cadd_res_by<- transform(cadd_res_sub,merge=paste(cadd_res_sub$'Chrom',cadd_res_sub$Pos,cadd_res_sub$Ref,cadd_res_sub$Alt,sep='_'),check.names=F)
 
 
 silva_res <-read.table(opts$silva,head=T,sep='\t')
 silva_res_by<- transform(silva_res,merge=paste(silva_res$'chrom',silva_res$pos,silva_res$ref,silva_res$alt,sep='_'))
-dna_item <- c(raw_res_by,eigen_res_by,spidex_res_by,annovar_res_by,cadd_res_by,silva_res_by)
 
-dna_item <- list(raw_res_by,eigen_res_by,spidex_res_by,annovar_res_by,cadd_res_by,silva_res_by)
-dna_res <- Reduce(function(x,y) {merge(x,y,by ='merge',all.x=TRUE)},dna_item)
 
 rna_res <-read.table(opts$rnascore,head=T)
-all_res <- merge(dna_res,rna_res,by.x='FeatureID',by.y='transcript_id',all=TRUE)
+rna_res_by<- transform(rna_res ,merge=paste(rna_res$'chr',rna_res$'pos',rna_res$'ref',rna_res$'alt',sep='_'))
+
+
+dna_item <- list(raw_res_by,eigen_res_by,spidex_res_by,annovar_res_by,cadd_res_by,silva_res_by,rna_res_by)
+dna_res <- Reduce(function(x,y) {merge(x,y,by ='merge',all.x=TRUE)},dna_item)
+
+all_res <- dna_res[!duplicated(dna_res),]
+#write.table(dna_res,'dna_res.txt',row.names=F,quote=F,sep='\t')
+
+#rna_res <-read.table(opts$rnascore,head=T)
+#all_res <- merge(dna_res,rna_res,by.x='FeatureID',by.y='transcript_id',all=TRUE)
 
 write.table(all_res,'all_res.txt',row.names=F,quote=F,sep='\t')

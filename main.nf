@@ -1,25 +1,47 @@
 #!/usr/bin/env nextflow
+//params.input="$baseDir/test/randomall.vcf"
 params.input="$baseDir/test/pathogenic.vcf"
 //params.input="$baseDir/test/test_input.vcf"
-params.output='output'
+params.output='pathogenic_output'
 database="/DG/database/pub/ssnp"
 params.silva_path="$database/silva"
 
 params.gwasdb2_file="$database/gwasdb_20150819_annotation.gz"
 params.spidex_file="$database/spidex_public_noncommercial_v1_0.tab.gz"
+params.hg19genome ="$database/uchr1-x.fasta"
 
 params.eigen_database="$database/eigen/eigen_noncoding"
 params.annovar_database="/DG/database/genomes/Homo_sapiens/hg19/annovar"
 
 
-Channel.fromPath(params.input).into{input_vcf0;input_vcf1;input_vcf2;input_vcf3}
+Channel.fromPath(params.input).set { input_vcf0 }
 
+
+process vcftocheck{
+    conda="r-optparse bcftools bioconductor-biostrings"
+
+    input:
+        file 'input.vcf' from input_vcf0
+    
+    output:
+        file 'adjust.vcf' into adjust_vcf
+    
+    script:
+    """   
+    echo \$PWD
+    sed  "s/^chr//g" input.vcf > input_temp.vcf
+    bcftools norm -c s input_temp.vcf -f ${params.hg19genome} 1> input_check.vcf 2> vcf_check.log
+    Rscript $baseDir/bin/vcf_check.R -i input_check.vcf -l vcf_check.log -o adjust.vcf
+    """
+}
+
+adjust_vcf.into{adjust_vcf0;adjust_vcf1;adjust_vcf2;adjust_vcf3}
 
 process vcftobed{
     conda='bedops'
 
     input:
-        file 'input.vcf' from input_vcf0
+        file 'input.vcf' from adjust_vcf0
     
     output:
         file 'input.bed' into output_bed
@@ -31,7 +53,7 @@ process vcftobed{
     """
 }
 
-output_bed.into{input0_bed;input1_bed;input2_bed;input3_bed;input4_bed}
+output_bed.into{input0_bed;input1_bed;input2_bed;input3_bed}
 
 process gwasdb2{
     conda="tabix"
@@ -89,7 +111,7 @@ process eigen{
 process annovar{
 
     input:
-        file 'input.vcf' from input_vcf3
+        file 'input.vcf' from adjust_vcf1
     
     output:
         file 'out.hg19_multianno.csv' into annovar_res
@@ -97,7 +119,7 @@ process annovar{
     script:
     """
     echo \$PWD 
-    perl $baseDir/bin/convert2annovar.pl -format vcf4 input.vcf > input.avinput
+    perl $baseDir/bin/convert2annovar.pl -format vcf4 input.vcf -allsample -withfreq > input.avinput
     perl $baseDir/bin/table_annovar.pl --remove --otherinfo --csvout --buildver hg19 \
         -protocol refGene,phastConsElements46way,genomicSuperDups,esp6500siv2_all,1000g2015aug_all,1000g2015aug_eas,avsnp147,avsift,dbnsfp33a,caddgt20,clinvar_20170130 \
         -operation g,r,r,f,f,f,f,f,f,f,f \
@@ -113,7 +135,7 @@ process silva{
     container="ssnp"
 
     input:
-        file 'input.vcf' from input_vcf1
+        file 'input.vcf' from adjust_vcf2
     
     output:
         file 'silva_result_final.tsv' into silva_res
@@ -136,7 +158,7 @@ process cadd{
     conda="pysam"
 
     input:
-        file('input.vcf') from input_vcf2
+        file('input.vcf') from adjust_vcf3
     output:
         file('res.score') into cadd_res
     script:
@@ -160,7 +182,7 @@ process getSeq{
         val row from transcripts
 
     when:
-        row.ConsDetail=~'synonymous'
+        row.AnnoType=~'CodingTranscript'
 
     output:
         set  file('wt.fasta'),file('mt.fasta') optional true into seq_files
@@ -168,11 +190,13 @@ process getSeq{
         file('seqss.txt') optional true into rnasnp_input
         file('remurna.seq') optional true into remurna_input
         set file('rnafold_wt.seq'),file('rnafold_mt.seq') optional true into rnafold_input
+        file('persnp.txt') optional true into persnp_res
 
     script:
     def transcriptid=row.FeatureID
     """
     echo \$PWD
+    echo 'chr pos ref alt' '\n'${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} > persnp.txt
     python $baseDir/bin/Transcript.py --ref ${row.Ref} --alt ${row.Alt} --transcriptid ${row.FeatureID} --cdsloc ${row.CDSpos} -f $database/Homo_sapiens.GRCh37.75.cds.all.fa -o .
 
     """
@@ -193,6 +217,7 @@ process rnasnp{
     """
     echo \$PWD
     RNAsnp -f wt.fasta -s seqss.txt -m 2 >rnasnp.res
+    
     """
 }
 
@@ -295,6 +320,7 @@ process rfm{
 
 process paste_res{
     input:
+        file('persnp.res') from persnp_res
         file('transcript.id') from transcriptid_file1
         file('rnasnp.res') from rnasnp_res
         file('remurna.res') from remurna_res
@@ -310,11 +336,12 @@ process paste_res{
     script:
     """
     echo \$PWD
-    paste transcript.id rnasnp.res remurna.res rnafold.res tai.res hcu.res rscu.res > paste.res
+    sed -e "/Warnings/d" -e "/^[[:space:]]*\$/d"  rnasnp.res > rnasnp_tmp.res
+    paste persnp.res transcript.id rnasnp_tmp.res remurna.res rnafold.res tai.res hcu.res rscu.res rfm.res > paste.res
     """
 }
 
-paste_res.collectFile(name:"${params.output}/trans_score.txt",keepHeader:true).into{trans_res}
+paste_res.collectFile(name:"${params.output}/trans_score.txt",keepHeader:true).set{trans_res}
 
 
 process merge_res{
@@ -323,7 +350,7 @@ process merge_res{
     publishDir {params.output}
     
     input:
-        file('input.bed') from input4_bed
+        file('input.bed') from input3_bed
         file('trans.res') from trans_res
         file('gwasdb.res') from gwasdb_res
         file('spidex.res') from spidex_res
@@ -338,7 +365,7 @@ process merge_res{
 
     """
     echo \$PWD
-    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -g gwasdb.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -t trans.res
+    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -w gwasdb.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -t trans.res
     """
 }
 
