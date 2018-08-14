@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 //params.input="$baseDir/test/randomall.vcf"
-params.input="$baseDir/test/pathogenic.vcf"
-//params.input="$baseDir/test/test_input.vcf"
+//params.input="$baseDir/test/pathogenic.vcf"
+params.input="$baseDir/test/test_input.vcf"
 params.output='pathogenic_output'
 database="/DG/database/pub/ssnp"
 params.silva_path="$database/silva"
