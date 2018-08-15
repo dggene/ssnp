@@ -132,7 +132,6 @@ process annovar{
 
 
 process silva{
-    container="ssnp"
 
     input:
         file 'input.vcf' from adjust_vcf2
