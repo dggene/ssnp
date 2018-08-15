@@ -132,7 +132,7 @@ process annovar{
 
 
 process silva{
-
+    conda='r-randomforest'
     input:
         file 'input.vcf' from adjust_vcf2
     
