@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 //params.input="$baseDir/test/randomall.vcf"
-//params.input="$baseDir/test/pathogenic.vcf"
-params.input="$baseDir/test/test2.vcf"
+params.input="$baseDir/test/pathogenic.vcf"
+//params.input="$baseDir/test/test2.vcf"
 params.output='pathogenic_output'
 database="/DG/database/pub/ssnp"
 params.silva_path="$database/silva"
@@ -182,7 +182,7 @@ process getSeq{
         val row from transcripts
         
     when:
-        row.AnnoType=~'CodingTranscript'
+        row.AnnoType=~'^CodingTranscript'
 
     output:
         set  file('wt.fasta'),file('mt.fasta') optional true into seq_files
