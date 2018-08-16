@@ -215,10 +215,10 @@ process getSeq{
 
         printf "GLOBAL_RATE\t0.06" > initRateFile
         cat wt.fasta mt.fasta >join.seq
-        Rscript $baseDir/bin/Calc_rfm.R -t transcriptid.id -d $database -b $baseDir
+        Rscript $baseDir/bin/Calc_rfm.R -t transcript.id -d $database -b $baseDir
 
         sed -e "/Warnings/d" -e "/^[[:space:]]*\$/d"  rnasnp.res > rnasnp_tmp.res
-        paste persnp.res transcript.id rnasnp_tmp.res remurna.res rnafold.res tai.res hcu.res rscu.res rfm.res > paste.res
+        paste persnp.txt transcript.id rnasnp_tmp.res remurna.res rnafold.res tai_res.txt hcu.res rscu.res rfm.res > paste.res
 
     fi    
     """
