@@ -177,6 +177,8 @@ cadd_res0.splitCsv(header:true,sep:'\t').set{transcripts}
 
 process getSeq{
     conda="biopython rnasnp viennarna r-optparse"
+    validExitStatus 0,160,192
+    
     input:
         val row from transcripts
         
