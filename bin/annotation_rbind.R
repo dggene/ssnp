@@ -70,9 +70,10 @@ dna_item <- list(raw_res_by,eigen_res_by,spidex_res_by,annovar_res_by,cadd_res_b
 dna_res <- Reduce(function(x,y) {merge(x,y,by ='merge',all.x=TRUE)},dna_item)
 
 write.table(dna_res,'dna_res.txt',row.names=F,quote=F,sep='\t')
-rna_res <-read.table(opts$rnascore,head=T)
+
 
 all_res <- merge(dna_res,rna_res_by,by =c('merge','CDSpos'),all=TRUE)
-all_res <- dna_res[!duplicated(all_res),]
+all_res <- all_res[!duplicated(all_res),]
+
 
 write.table(all_res,'all_res.txt',row.names=F,quote=F,sep='\t')
