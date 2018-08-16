@@ -1,3 +1,4 @@
+
 #!/usr/bin/env nextflow
 //params.input="$baseDir/test/randomall.vcf"
 params.input="$baseDir/test/pathogenic.vcf"
@@ -199,7 +200,7 @@ process getSeq{
     then
         echo "chr pos ref alt CDSpos" "\n"${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} ${row.CDSpos} > persnp.txt
          
-        RNAsnp -f wt.fasta -s seqss.txt -m 2 >rnasnp.res
+        Rscript $baseDir/bin/RNAsnp.R -w wt.fasta -s seqss.txt
 
         $baseDir/bin/remuRNA remurna.seq >remurna.res
 
