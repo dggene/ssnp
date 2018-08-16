@@ -1,8 +1,6 @@
 #!/usr/bin/env nextflow
-//params.input="$baseDir/test/randomall.vcf"
-params.input="$baseDir/test/pathogenic.vcf"
-//params.input="$baseDir/test/test2.vcf"
-params.output='pathogenic_output'
+params.input="$baseDir/test/test2.vcf"
+params.output='output'
 database="/DG/database/pub/ssnp"
 params.silva_path="$database/silva"
 
@@ -137,7 +135,8 @@ process silva{
         file 'input.vcf' from adjust_vcf2
     
     output:
-        file 'silva_result_final.tsv' into silva_res
+        file 'silva_result.tsv' into silva_res0
+        file 'silva_mat_result.tsv' into silva_res1
     
     script:
     """
@@ -145,8 +144,9 @@ process silva{
     silva-preprocess ./tmp input.vcf
     silva-run ./tmp >silva_temp_result.tsv
     sed  -e '1d' -e 's/#//' -e 's/score/silva_score/' silva_temp_result.tsv |awk -F '\\t' '{for(i=1;i<11;i++)printf \$i"\\t";printf("\\n")}' > silva_result.tsv
-    paste silva_result.tsv ./tmp/input.mat   >  silva_temp_result_final.tsv
-    sed  -e 's/?//g'  -e 's/#//g' silva_temp_result_final.tsv > silva_result_final.tsv
+    sed  's/#//' ./tmp/input.syn |awk -F '\\t' '{for(i=1;i<5;i++)printf \$i"\\t";printf("\\n")}' > input.syn
+    paste input.syn ./tmp/input.mat   >  silva_temp_mat_result.tsv
+    sed  -e 's/?//g'  -e 's/#//g' silva_temp_mat_result.tsv > silva_mat_result.tsv
 
     """
 
@@ -176,7 +176,7 @@ cadd_res0.splitCsv(header:true,sep:'\t').set{transcripts}
 
 
 process getSeq{
-    conda="biopython rnasnp viennarna r-optparse"
+    conda="biopython rnasnp viennarna r-optparse bioconductor-biocparallel"
     validExitStatus 0,1,2
     input:
         val row from transcripts
@@ -185,7 +185,7 @@ process getSeq{
         row.AnnoType=~'^CodingTranscript'
 
     output:
-        file('paste.res') into paste_res
+        file('paste.res') optional true into paste_res
 
     script:
     def transcriptid=row.FeatureID
@@ -196,39 +196,14 @@ process getSeq{
     python $baseDir/bin/Transcript.py --ref ${row.Ref} --alt ${row.Alt} --transcriptid ${row.FeatureID} --cdsloc ${row.CDSpos} -f $database/Homo_sapiens.GRCh37.75.cds.all.fa -o .       
     if [ -f "wt.fasta" ]
     then
-        echo "chr pos ref alt CDSpos" "\n"${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} ${row.CDSpos} > persnp.txt
-         
-        Rscript $baseDir/bin/RNAsnp.R -w wt.fasta -s seqss.txt
+        echo "chr pos ref alt CDSpos" "\n"${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} ${row.CDSpos} > persnp.txt       
+    fi
 
-        $baseDir/bin/remuRNA remurna.seq >remurna.res
-
-        RNAfold --noPS <rnafold_wt.seq >rnafold_wt.res
-        RNAfold --noPS <rnafold_mt.seq >rnafold_mt.res
-        python $baseDir/bin/collect_rnafold.py -w rnafold_wt.res -m rnafold_mt.res -o .
-
-        python $baseDir/bin/calc_hcu.py -w wt.fasta -m mt.fasta -f $database/codon/codon_frequency.txt -o hcu.res
-
-        python $baseDir/bin/calc_rscu.py -w wt.fasta -m mt.fasta -o rscu.res
-
-        perl $baseDir/bin/codonM wt.fasta wt.m
-        perl $baseDir/bin/codonM mt.fasta mt.m
-        Rscript $baseDir/bin/calc_tAi.R  -d $database -b $baseDir
-
-        printf "GLOBAL_RATE\t0.06" > initRateFile
-        cat wt.fasta mt.fasta >join.seq
-        Rscript $baseDir/bin/Calc_rfm.R -t transcript.id -d $database -b $baseDir
-
-        sed -e "/Warnings/d" -e "/^[[:space:]]*\$/d"  rnasnp.res > rnasnp_tmp.res
-        paste persnp.txt transcript.id rnasnp_tmp.res remurna.res rnafold.res tai_res.txt hcu.res rscu.res rfm.res > paste.res
-
-    fi    
+    Rscript $baseDir/bin/Calc_RNAscore.R -d $database -b $baseDir
     """
-
 }
 
-
 paste_res.collectFile(name:"${params.output}/trans_score.txt",keepHeader:true, sort: true, newLine: true).set{trans_res}
-
 
 process merge_res{
     conda="r-optparse"
@@ -243,7 +218,8 @@ process merge_res{
         file('eigen.res') from eigen_res
         file('annovar.res') from annovar_res
         file('cadd.score') from cadd_res1
-        file('silva.score') from silva_res
+        file('silva.score') from silva_res0
+        file('silva.mat') from silva_res1
 
 
     output:
@@ -251,7 +227,7 @@ process merge_res{
 
     """
     echo \$PWD
-    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -w gwasdb.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -t trans.res
+    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -w gwasdb.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -m silva.mat -t trans.res
     """
 }
 

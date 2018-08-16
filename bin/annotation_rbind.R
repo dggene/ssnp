@@ -16,8 +16,10 @@ make_option(c("-a", "--annovar"), type="character", default="input.txt",
               help="annovar to read [default %default]"),
 make_option(c("-c", "--cadd"), type="character", default="input.txt",
               help="cadd file to read [default %default]"),
-make_option(c("-i", "--silva"), type="character", default="input.txt",
+make_option(c("-i", "--silva_res"), type="character", default="input.txt",
               help="silva file to read [default %default]"),
+make_option(c("-m", "--silva_mat"), type="character", default="input.txt",
+              help="silva file to read [default %default]"),              
 make_option(c("-t", "--rnascore"), type="character", default="input.txt",
               help="rnascore file to read [default %default]")              
                             
@@ -47,7 +49,6 @@ if(length(grep('chr',spidex_res$chromosome))>0){
  }
 spidex_res_by<- transform(spidex_res,merge=paste(spidex_res$chromosome,spidex_res$position,spidex_res$ref_allele,spidex_res$mut_allele,sep='_'))
 
-
 annovar_res <- read.csv(opts$annovar,head=T,check.names=F,sep=',')
 annovar_res <- annovar_res[,-ncol(annovar_res)]
 if(length(grep('chr',annovar_res$Chr))>0){
@@ -55,25 +56,29 @@ if(length(grep('chr',annovar_res$Chr))>0){
  }
 annovar_res_by<- transform(annovar_res,merge=paste(annovar_res$Chr,annovar_res$End,annovar_res$Ref,annovar_res$Alt,sep='_'))
 
+
+
 cadd_res <- read.table(opts$cadd,head=T,check.names=F,sep='\t')
 cadd_res_sub <- subset(cadd_res,(AnnoType=='CodingTranscript' ))
 cadd_res_sub <-cadd_res_sub[!duplicated(cadd_res_sub),]
 cadd_res_by<- transform(cadd_res_sub,merge=paste(cadd_res_sub$'Chrom',cadd_res_sub$Pos,cadd_res_sub$Ref,cadd_res_sub$Alt,sep='_'),check.names=F)
 
-silva_res <-read.table(opts$silva,head=T,sep='\t')
+
+silva_res <-read.table(opts$silva_res,head=T,sep='\t')
 silva_res_by<- transform(silva_res,merge=paste(silva_res$'chrom',silva_res$pos,silva_res$ref,silva_res$alt,sep='_'))
+
+silva_mat <-read.table(opts$silva_mat,head=T,sep='\t')
+silva_mat_by<- transform(silva_mat,merge=paste(silva_mat$'chrom',silva_mat$pos,silva_mat$ref,silva_mat$alt,sep='_'))
+
 
 rna_res <-read.table(opts$rnascore,head=T)
 rna_res_by<- transform(rna_res ,merge=paste(rna_res$'chr',rna_res$'pos',rna_res$'ref',rna_res$'alt',sep='_'))
 
-dna_item <- list(raw_res_by,eigen_res_by,spidex_res_by,annovar_res_by,cadd_res_by,silva_res_by)
+dna_item <- list(raw_res_by,eigen_res_by,spidex_res_by,annovar_res_by,cadd_res_by,silva_res_by,silva_mat_by)
 dna_res <- Reduce(function(x,y) {merge(x,y,by ='merge',all.x=TRUE)},dna_item)
-
+dna_res <- dna_res[!duplicated(dna_res),]
 write.table(dna_res,'dna_res.txt',row.names=F,quote=F,sep='\t')
-
 
 all_res <- merge(dna_res,rna_res_by,by =c('merge','CDSpos'),all=TRUE)
 all_res <- all_res[!duplicated(all_res),]
-
-
 write.table(all_res,'all_res.txt',row.names=F,quote=F,sep='\t')
