@@ -1,4 +1,3 @@
-
 #!/usr/bin/env nextflow
 //params.input="$baseDir/test/randomall.vcf"
 params.input="$baseDir/test/pathogenic.vcf"
@@ -178,7 +177,7 @@ cadd_res0.splitCsv(header:true,sep:'\t').set{transcripts}
 
 process getSeq{
     conda="biopython rnasnp viennarna r-optparse"
-    
+
     input:
         val row from transcripts
         
