@@ -188,47 +188,57 @@ process getSeq{
 
     script:
     def transcriptid=row.FeatureID
+    
     """
     echo \$PWD  
-
+    """
     //get seq
+    """
     python $baseDir/bin/Transcript.py --ref ${row.Ref} --alt ${row.Alt} --transcriptid ${row.FeatureID} --cdsloc ${row.CDSpos} -f $database/Homo_sapiens.GRCh37.75.cds.all.fa -o .       
     if [ -f "wt.fasta" ]
     then
          echo "chr pos ref alt CDSpos" "\n"${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} ${row.CDSpos} > persnp.txt
     fi   
-
+    """    
     //RNAsnp calculate
+    """
     RNAsnp -f wt.fasta -s seqss.txt -m 2 >rnasnp.res
-    
+    """
     //remuRNA calculate
+    """
     $baseDir/bin/remuRNA remurna.txt >remurna.res
-
+    """
     //RNAfold calculate
+    """
     RNAfold --noPS < rnafold_wt.seq >rnafold_wt.res
     RNAfold --noPS <rnafold_mt.seq >rnafold_mt.res
     python $baseDir/bin/collect_rnafold.py -w rnafold_wt.res -m rnafold_mt.res -o .
-              
+    """
+
     //hcu calculate
+    """
     python $baseDir/bin/calc_hcu.py -w wt.seq -m mt.seq -f $database/codon/codon_frequency.txt -o hcu.res
-
+    """
     //rscu calculate
+    """
     python $baseDir/bin/calc_rscu.py -w wt.seq -m mt.seq -o rscu.res
-
+    """
     //tAI calculate
+    """
     perl $baseDir/bin/codonM wt.seq wt.m
     perl $baseDir/bin/codonM mt.seq mt.m
     Rscript $baseDir/bin/calc_tAi.R  -d $database -b $baseDir
-
+    """
     //rfm calculate
+    """
     printf "GLOBAL_RATE\t0.06" > initRateFile
     cat wt.seq mt.seq >join.seq
     Rscript $baseDir/bin/Calc_rfm.R -t transcriptid.id -d $database -b $baseDir
-
+    """
     // result paste
+    """
     sed -e "/Warnings/d" -e "/^[[:space:]]*\$/d"  rnasnp.res > rnasnp_tmp.res
     paste persnp.res transcript.id rnasnp_tmp.res remurna.res rnafold.res tai.res hcu.res rscu.res rfm.res > paste.res
-
     """ 
 
 }
