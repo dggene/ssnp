@@ -6,7 +6,9 @@ params.silva_path="$database/silva"
 
 params.gwasdb2_file="$database/gwasdb_20150819_annotation.gz"
 params.spidex_file="$database/spidex_public_noncommercial_v1_0.tab.gz"
+params.gwavas_file="$database/gwava_scores.bed.gz"
 params.hg19genome ="$database/uchr1-x.fasta"
+params.sce_database ="$database/SCE"
 
 params.eigen_database="$database/eigen/eigen_noncoding"
 params.annovar_database="/DG/database/genomes/Homo_sapiens/hg19/annovar"
@@ -51,7 +53,7 @@ process vcftobed{
     """
 }
 
-output_bed.into{input0_bed;input1_bed;input2_bed;input3_bed}
+output_bed.into{input0_bed;input1_bed;input2_bed;input3_bed;input4_bed;input5_bed}
 
 process gwasdb2{
     conda="tabix"
@@ -82,10 +84,54 @@ process spidex{
     """
         echo \$PWD
         zcat ${params.spidex_file} |head -1 > head.txt
-        tabix ${params.spidex_file} -B input.bed > spidex_res_sub.tsv
-        cat head.txt spidex_res_sub.tsv > spidex_res.tsv
+        awk '{ print "chr"\$1 "\\t" \$2 "\\t" \$3}' input.bed > chr_input.bed
+        tabix ${params.spidex_file} -B chr_input.bed | sed  "s/^chr//g" > spidex_res_sub.tsv
+        cat head.txt spidex_res_sub.tsv  > spidex_res.tsv
     """
 }
+
+process gwava{
+    conda="tabix"
+    input:
+        file 'input.bed' from input4_bed
+
+    output:
+        file 'gwava_res.tsv' into gwava_res
+
+    script:
+    """
+        echo \$PWD
+        echo -e "chr\tstr\tend\trs\tgwava_s1\tgwava_s2\tgwava_s3" > head.txt
+        awk '{ print "chr"\$1 "\t" \$2 "\t" \$3}' input.bed > chr_input.bed
+        tabix ${params.gwavas_file} -B chr_input.bed |sed  "s/^chr//g"> gwava_res_sub.tsv
+        cat head.txt gwava_res_sub.tsv  > gwava_res.tsv
+    """
+}
+
+
+process sce{
+    conda="bedtools"
+    input:
+        file 'input.bed' from input5_bed
+
+    output:
+        file 'sce_final_res.tsv' into sce_res
+
+    script:
+    """
+        echo \$PWD
+        echo -e "chr\tstr\tend\tsce9\tsce15\tsce30" > head.txt
+        awk '{ print "chr"\$1 "\t" \$2 "\t" \$3  }' input.bed > chr_input.bed
+        bedtools intersect -c -a chr_input.bed -b ${params.sce_database}9_hg19.bed > sce9.txt
+        bedtools intersect -c -a chr_input.bed -b ${params.sce_database}15_hg19.bed > sce15.txt
+        bedtools intersect -c -a chr_input.bed -b ${params.sce_database}30_hg19.bed > sce30.txt
+        paste sce9.txt sce15.txt sce30.txt > sce_temp.txt
+        awk '{ print \$1 "\t" \$2 "\t" \$3 "\t" \$4 "\t" \$8 "\t" \$12}' sce_temp.txt | sed  "s/^chr//g" > sce_res.tsv
+        cat head.txt sce_res.tsv >sce_final_res.tsv
+   
+    """
+}
+
 
 
 process eigen{
@@ -144,7 +190,7 @@ process silva{
     silva-preprocess ./tmp input.vcf
     silva-run ./tmp >silva_temp_result.tsv
     sed  -e '1d' -e 's/#//' -e 's/score/silva_score/' silva_temp_result.tsv |awk -F '\\t' '{for(i=1;i<11;i++)printf \$i"\\t";printf("\\n")}' > silva_result.tsv
-    sed  's/#//' ./tmp/input.syn |awk -F '\\t' '{for(i=1;i<5;i++)printf \$i"\\t";printf("\\n")}' > input.syn
+    sed  's/#//' ./tmp/input.syn |awk -F '\\t' '{for(i=1;i<6;i++)printf \$i"\\t";printf("\\n")}' > input.syn
     paste input.syn ./tmp/input.mat   >  silva_temp_mat_result.tsv
     sed  -e 's/?//g'  -e 's/#//g' silva_temp_mat_result.tsv > silva_mat_result.tsv
 
@@ -196,14 +242,14 @@ process getSeq{
     python $baseDir/bin/Transcript.py --ref ${row.Ref} --alt ${row.Alt} --transcriptid ${row.FeatureID} --cdsloc ${row.CDSpos} -f $database/Homo_sapiens.GRCh37.75.cds.all.fa -o .       
     if [ -f "wt.fasta" ]
     then
-        echo "chr pos ref alt CDSpos" "\n"${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} ${row.CDSpos} > persnp.txt       
+        echo -e "chr\tpos\tref\talt\tCDSpos\n"${row.Chrom}"\t"${row.Pos}"\t"${row.Ref}"\t"${row.Alt}"\t"${row.CDSpos} > persnp.txt       
     fi
 
     Rscript $baseDir/bin/Calc_RNAscore.R -d $database -b $baseDir
     """
 }
 
-paste_res.collectFile(name:"${params.output}/trans_score.txt",keepHeader:true, sort: true, newLine: true).set{trans_res}
+paste_res.collectFile(name:"${params.output}/trans_score.txt",keepHeader:true).set{trans_res}
 
 process merge_res{
     conda="r-optparse"
@@ -220,6 +266,8 @@ process merge_res{
         file('cadd.score') from cadd_res1
         file('silva.score') from silva_res0
         file('silva.mat') from silva_res1
+        file('gwava.res') from gwava_res
+        file('sce.res') from sce_res
 
 
     output:
@@ -227,7 +275,7 @@ process merge_res{
 
     """
     echo \$PWD
-    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -w gwasdb.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -m silva.mat -t trans.res
+    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -w gwasdb.res -v gwava.res -b sce.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -m silva.mat -t trans.res
     """
 }
 
