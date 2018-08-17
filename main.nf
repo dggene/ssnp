@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 //params.input="$baseDir/test/randomall.vcf"
-//params.input="$baseDir/test/pathogenic.vcf"
-params.input="$baseDir/test/test_input.vcf"
+params.input="$baseDir/test/pathogenic.vcf"
+//params.input="$baseDir/test/test2.vcf"
 params.output='pathogenic_output'
 database="/DG/database/pub/ssnp"
 params.silva_path="$database/silva"
@@ -180,9 +180,9 @@ process getSeq{
     conda="biopython"
     input:
         val row from transcripts
-
+        
     when:
-        row.AnnoType=~'CodingTranscript'
+        row.AnnoType=~'^CodingTranscript'
 
     output:
         set  file('wt.fasta'),file('mt.fasta') optional true into seq_files
@@ -195,15 +195,19 @@ process getSeq{
     script:
     def transcriptid=row.FeatureID
     """
-    echo \$PWD
-    echo 'chr pos ref alt CDSpos' '\n'${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} ${row.CDSpos} > persnp.txt
+    echo \$PWD  
     python $baseDir/bin/Transcript.py --ref ${row.Ref} --alt ${row.Alt} --transcriptid ${row.FeatureID} --cdsloc ${row.CDSpos} -f $database/Homo_sapiens.GRCh37.75.cds.all.fa -o .
-
-    """
+       
+    if [ -f "wt.fasta" ]
+    then
+         echo "chr pos ref alt CDSpos" "\n"${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} ${row.CDSpos} > persnp.txt
+    fi
+    """  
 }
 
 seq_files.into{seq_files0;seq_files1;seq_files2;seq_files3;seq_files4}
 transcriptid_file.into {transcriptid_file0;transcriptid_file1}
+persnp_res.into { persnp_res0; persnp_res1}
 
 process rnasnp{
     conda="rnasnp"
@@ -320,7 +324,7 @@ process rfm{
 
 process paste_res{
     input:
-        file('persnp.res') from persnp_res
+        file('persnp.res') from persnp_res0
         file('transcript.id') from transcriptid_file1
         file('rnasnp.res') from rnasnp_res
         file('remurna.res') from remurna_res
@@ -341,7 +345,7 @@ process paste_res{
     """
 }
 
-paste_res.collectFile(name:"${params.output}/trans_score.txt",keepHeader:true).set{trans_res}
+paste_res.collectFile(name:"${params.output}/trans_score.txt",keepHeader:true, sort: true, newLine: true).set{trans_res}
 
 
 process merge_res{

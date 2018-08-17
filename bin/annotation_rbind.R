@@ -60,22 +60,19 @@ cadd_res_sub <- subset(cadd_res,(AnnoType=='CodingTranscript' ))
 cadd_res_sub <-cadd_res_sub[!duplicated(cadd_res_sub),]
 cadd_res_by<- transform(cadd_res_sub,merge=paste(cadd_res_sub$'Chrom',cadd_res_sub$Pos,cadd_res_sub$Ref,cadd_res_sub$Alt,sep='_'),check.names=F)
 
-
 silva_res <-read.table(opts$silva,head=T,sep='\t')
 silva_res_by<- transform(silva_res,merge=paste(silva_res$'chrom',silva_res$pos,silva_res$ref,silva_res$alt,sep='_'))
-
 
 rna_res <-read.table(opts$rnascore,head=T)
 rna_res_by<- transform(rna_res ,merge=paste(rna_res$'chr',rna_res$'pos',rna_res$'ref',rna_res$'alt',sep='_'))
 
+dna_item <- list(raw_res_by,eigen_res_by,spidex_res_by,annovar_res_by,cadd_res_by,silva_res_by)
+dna_res <- Reduce(function(x,y) {merge(x,y,by ='merge',all.x=TRUE)},dna_item)
 
-dna_item <- list(raw_res_by,eigen_res_by,spidex_res_by,annovar_res_by,cadd_res_by,silva_res_by,rna_res_by)
-dna_res <- Reduce(function(x,y) {merge(x,y,by =c('merge','CDSpos'),all.x=TRUE)},dna_item)
+write.table(dna_res,'dna_res.txt',row.names=F,quote=F,sep='\t')
+rna_res <-read.table(opts$rnascore,head=T)
 
-all_res <- dna_res[!duplicated(dna_res),]
-#write.table(dna_res,'dna_res.txt',row.names=F,quote=F,sep='\t')
-
-#rna_res <-read.table(opts$rnascore,head=T)
-#all_res <- merge(dna_res,rna_res,by.x='FeatureID',by.y='transcript_id',all=TRUE)
+all_res <- merge(dna_res,rna_res_by,by =c('merge','CDSpos'),all=TRUE)
+all_res <- dna_res[!duplicated(all_res),]
 
 write.table(all_res,'all_res.txt',row.names=F,quote=F,sep='\t')
