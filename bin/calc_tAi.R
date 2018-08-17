@@ -25,7 +25,7 @@ m_m=matrix(scan("mt.m"), ncol=61,byrow=T)
 m_tai_list=gettai(m_m, ws)
 save.image('text.Rdata')
 
-len=nchar(readLines('mt.seq',skip=1)[2])
+len=nchar(readLines('mt.fasta',skip=1)[2])
 
 
 res=data.frame(

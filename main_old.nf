@@ -1,6 +1,8 @@
 #!/usr/bin/env nextflow
-params.input="$baseDir/test/test2.vcf"
-params.output='output'
+//params.input="$baseDir/test/randomall.vcf"
+params.input="$baseDir/test/pathogenic.vcf"
+//params.input="$baseDir/test/test2.vcf"
+params.output='pathogenic_output'
 database="/DG/database/pub/ssnp"
 params.silva_path="$database/silva"
 
@@ -135,8 +137,7 @@ process silva{
         file 'input.vcf' from adjust_vcf2
     
     output:
-        file 'silva_result.tsv' into silva_res0
-        file 'silva_mat_result.tsv' into silva_res1
+        file 'silva_result_final.tsv' into silva_res
     
     script:
     """
@@ -144,9 +145,8 @@ process silva{
     silva-preprocess ./tmp input.vcf
     silva-run ./tmp >silva_temp_result.tsv
     sed  -e '1d' -e 's/#//' -e 's/score/silva_score/' silva_temp_result.tsv |awk -F '\\t' '{for(i=1;i<11;i++)printf \$i"\\t";printf("\\n")}' > silva_result.tsv
-    sed  's/#//' ./tmp/input.syn |awk -F '\\t' '{for(i=1;i<5;i++)printf \$i"\\t";printf("\\n")}' > input.syn
-    paste input.syn ./tmp/input.mat   >  silva_temp_mat_result.tsv
-    sed  -e 's/?//g'  -e 's/#//g' silva_temp_mat_result.tsv > silva_mat_result.tsv
+    paste silva_result.tsv ./tmp/input.mat   >  silva_temp_result_final.tsv
+    sed  -e 's/?//g'  -e 's/#//g' silva_temp_result_final.tsv > silva_result_final.tsv
 
     """
 
@@ -176,8 +176,7 @@ cadd_res0.splitCsv(header:true,sep:'\t').set{transcripts}
 
 
 process getSeq{
-    conda="biopython rnasnp viennarna r-optparse bioconductor-biocparallel"
-    validExitStatus 0,1,2
+    conda="biopython"
     input:
         val row from transcripts
         
@@ -185,25 +184,168 @@ process getSeq{
         row.AnnoType=~'^CodingTranscript'
 
     output:
-        file('paste.res') optional true into paste_res
+        set  file('wt.fasta'),file('mt.fasta') optional true into seq_files
+        file('transcript.id') optional true into transcriptid_file
+        file('seqss.txt') optional true into rnasnp_input
+        file('remurna.seq') optional true into remurna_input
+        set file('rnafold_wt.seq'),file('rnafold_mt.seq') optional true into rnafold_input
+        file('persnp.txt') optional true into persnp_res
 
     script:
     def transcriptid=row.FeatureID
-    
     """
     echo \$PWD  
-   
-    python $baseDir/bin/Transcript.py --ref ${row.Ref} --alt ${row.Alt} --transcriptid ${row.FeatureID} --cdsloc ${row.CDSpos} -f $database/Homo_sapiens.GRCh37.75.cds.all.fa -o .       
+    python $baseDir/bin/Transcript.py --ref ${row.Ref} --alt ${row.Alt} --transcriptid ${row.FeatureID} --cdsloc ${row.CDSpos} -f $database/Homo_sapiens.GRCh37.75.cds.all.fa -o .
+       
     if [ -f "wt.fasta" ]
     then
-        echo "chr pos ref alt CDSpos" "\n"${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} ${row.CDSpos} > persnp.txt       
+         echo "chr pos ref alt CDSpos" "\n"${row.Chrom} ${row.Pos} ${row.Ref} ${row.Alt} ${row.CDSpos} > persnp.txt
     fi
+    """  
+}
 
-    Rscript $baseDir/bin/Calc_RNAscore.R -d $database -b $baseDir
+seq_files.into{seq_files0;seq_files1;seq_files2;seq_files3;seq_files4}
+transcriptid_file.into {transcriptid_file0;transcriptid_file1}
+persnp_res.into { persnp_res0; persnp_res1}
+
+process rnasnp{
+    conda="rnasnp"
+    validExitStatus 0,160,192
+    input:
+        set file('wt.fasta'),file('mt.fasta') from seq_files0
+        file('seqss.txt') from rnasnp_input
+    output:
+        file('rnasnp.res') into rnasnp_res
+    script:
+    """
+    echo \$PWD
+    RNAsnp -f wt.fasta -s seqss.txt -m 2 >rnasnp.res
+    
+    """
+}
+
+
+process remuRNA{
+    
+    input:
+       file('remurna.txt') from remurna_input
+    output:
+        file('remurna.res') into remurna_res
+    script:
+    """
+    echo \$PWD
+    $baseDir/bin/remuRNA remurna.txt >remurna.res
+    """
+}
+
+
+process rnafold{
+    conda='viennarna'
+    input:
+       set file('rnafold_wt.seq'),file('rnafold_mt.seq') from rnafold_input
+    output:
+        file('rnafold.res') into rnafold_res
+    script:
+    """
+    echo \$PWD
+    RNAfold --noPS < rnafold_wt.seq >rnafold_wt.res
+    RNAfold --noPS <rnafold_mt.seq >rnafold_mt.res
+    python $baseDir/bin/collect_rnafold.py -w rnafold_wt.res -m rnafold_mt.res -o .
+    """        
+}
+
+
+process hcu{
+    conda='biopython'
+    input:
+        set file('wt.seq'),file('mt.seq') from seq_files1
+    output:
+        file('hcu.res') into hcu_res
+    script:
+    """
+    echo \$PWD
+    python $baseDir/bin/calc_hcu.py -w wt.seq -m mt.seq -f $database/codon/codon_frequency.txt -o hcu.res
+    """
+}
+
+
+process rscu{
+    conda='biopython'
+    input:
+        set file('wt.seq'),file('mt.seq') from seq_files2
+    output:
+        file('rscu.res') into rscu_res
+    
+    script:
+    """
+    echo \$PWD
+    python $baseDir/bin/calc_rscu.py -w wt.seq -m mt.seq -o rscu.res
+    """
+}
+
+
+
+process tai{
+    conda="r-optparse"
+
+    input:
+        set file('wt.seq'),file('mt.seq') from seq_files4
+    output:
+        file('tai_res.txt') into tai_res
+    
+    script:
+    """
+    echo \$PWD
+    perl $baseDir/bin/codonM wt.seq wt.m
+    perl $baseDir/bin/codonM mt.seq mt.m
+    Rscript $baseDir/bin/calc_tAi.R  -d $database -b $baseDir
+    """
+}
+
+
+process rfm{
+    conda="r-optparse"
+
+    input:
+        set file('wt.seq'),file('mt.seq') from seq_files3
+        file('transcriptid.id') from transcriptid_file0
+    output:
+        file('rfm.res') into rfm_res
+    script:
+    """
+    echo \$PWD
+    printf "GLOBAL_RATE\t0.06" > initRateFile
+    cat wt.seq mt.seq >join.seq
+    Rscript $baseDir/bin/Calc_rfm.R -t transcriptid.id -d $database -b $baseDir
+    """
+}
+
+
+process paste_res{
+    input:
+        file('persnp.res') from persnp_res0
+        file('transcript.id') from transcriptid_file1
+        file('rnasnp.res') from rnasnp_res
+        file('remurna.res') from remurna_res
+        file('rnafold.res') from rnafold_res
+        file('hcu.res') from hcu_res
+        file('rscu.res') from rscu_res
+        file('tai.res') from tai_res
+        file('rfm.res') from rfm_res
+    
+    output:
+        file('paste.res') into paste_res
+    
+    script:
+    """
+    echo \$PWD
+    sed -e "/Warnings/d" -e "/^[[:space:]]*\$/d"  rnasnp.res > rnasnp_tmp.res
+    paste persnp.res transcript.id rnasnp_tmp.res remurna.res rnafold.res tai.res hcu.res rscu.res rfm.res > paste.res
     """
 }
 
 paste_res.collectFile(name:"${params.output}/trans_score.txt",keepHeader:true, sort: true, newLine: true).set{trans_res}
+
 
 process merge_res{
     conda="r-optparse"
@@ -218,8 +360,7 @@ process merge_res{
         file('eigen.res') from eigen_res
         file('annovar.res') from annovar_res
         file('cadd.score') from cadd_res1
-        file('silva.score') from silva_res0
-        file('silva.mat') from silva_res1
+        file('silva.score') from silva_res
 
 
     output:
@@ -227,7 +368,7 @@ process merge_res{
 
     """
     echo \$PWD
-    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -w gwasdb.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -m silva.mat -t trans.res
+    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -w gwasdb.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -t trans.res
     """
 }
 
