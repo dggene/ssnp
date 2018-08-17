@@ -122,16 +122,17 @@ class Transcript(object):
         new_loc = cdsLoc
         count = len(seq_list)
         if count > length:
-            if cdsLoc <= length//2:
+            if cdsLoc <= length//2: #原来的位置在比较偏左
                 seq = seq_list[0:length]
                 new_loc = cdsLoc
-            elif (count-cdsLoc) <= length//2:
+            elif (count-cdsLoc) <= length//2: #原来的位置在比较偏右
                 seq = seq_list[0-length:]
                 new_loc = length-(count-cdsLoc)
             else:
-                left=cdsLoc-length//2-1
+                offset = length % 2
+                left=cdsLoc-length//2-offset
                 seq = seq_list[left:left+length]
-                new_loc = length//2+1
+                new_loc = length//2+offset
         else:
             seq = seq_list
             new_loc = cdsLoc
