@@ -35,16 +35,4 @@
 ##source=SelectVariants							
 ##variationPropertyDocumentationUrl=ftp://ftp.ncbi.nlm.nih.gov/snp/specs/dbSNP_BitField_latest.pdf							
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-1	1247494	rs12103	T	C	.	.	ASP
-1	3807388	rs4131373	G	A	.	.	ASP
-1	8390888	rs2289731	G	A	.	.	ASP
 1	10596341	rs12375	C	T	.	.	ASP
-1	10708142	rs778228	A	G	.	.	ASP
-1	10725498	rs284322	G	A	.	.	ASP
-1	11854896	rs2066462	G	A	.	.	ASP
-1	11863057	rs2066470	G	A	.	.	ASP
-1	12836235	rs111797423	C	T	.	.	ASP
-1	17413121	rs2076615	A	C	.	.	ASP
-1	17674537	rs2240335	C	A	.	.	ASP
-1	22456293	rs148427888	G	A	.	.	ASP
-1	22965438	rs172378	A	G	.	.	ASP
