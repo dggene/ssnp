@@ -176,7 +176,7 @@ process annovar{
 
 
 process silva{
-    conda='r-randomforest'
+    conda='r-randomforest numpy'
     input:
         file 'input.vcf' from adjust_vcf2
     
