@@ -167,9 +167,9 @@ def calc_rscu(seq_record):
             count_syn+=1
     
     n=CODON_NUM[the_codon]
-    print(the_codon)
-    print(count)
-    print('count_the:%d,count_syn:%d,n:%d'%(count_the,count_syn,n))
+    #print(the_codon)
+    #print(count)
+    #print('count_the:%d,count_syn:%d,n:%d'%(count_the,count_syn,n))
     rscu=n*count_the/float(count_syn)
     
     return rscu
