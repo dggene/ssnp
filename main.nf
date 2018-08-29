@@ -218,32 +218,25 @@ process cadd{
 }
 
 cadd_res.into{cadd_res0;cadd_res1}
-cadd_res0.splitCsv(header:true,sep:'\t').set{transcripts}
-
+cadd_res0.splitText(file:true).into{transcripts0;transcripts1}
 
 process getSeq{
     conda="biopython rnasnp viennarna r-optparse bioconductor-biocparallel"
-    validExitStatus 0,1,2
+    validExitStatus 0
     input:
-        val row from transcripts
-        
-    when:
-        row.AnnoType=~'^CodingTranscript'
+        val row from transcripts0
+        val header from transcripts1.first()
 
     output:
         file('paste.res') optional true into paste_res
 
     script:
-    def transcriptid=row.FeatureID
     
     """
     echo \$PWD  
-   
-    python $baseDir/bin/Transcript.py --ref ${row.Ref} --alt ${row.Alt} --transcriptid ${row.FeatureID} --cdsloc ${row.CDSpos} -f $database/Homo_sapiens.GRCh37.75.cds.all.fa -o .       
-    if [ -f "wt.fasta" ]
-    then
-        echo -e "chr\tpos\tref\talt\tCDSpos\n"${row.Chrom}"\t"${row.Pos}"\t"${row.Ref}"\t"${row.Alt}"\t"${row.CDSpos} > persnp.txt       
-    fi
+
+    
+    python $baseDir/bin/Transcript.py -i $row -hf $header  -f $database/Homo_sapiens.GRCh37.75.cds.all.fa -o .       
 
     Rscript $baseDir/bin/Calc_RNAscore.R -d $database -b $baseDir
     """
