@@ -29,7 +29,7 @@ if(length(unique(input_bed$V1)) > 0) {
         print(nchr)
         if(nchr>=1 && nchr <=22) {
             input_bed_nchr <- subset(input_bed,subset = (V1==nchr))
-            #print(nrow(input_bed_nchr))
+            print(nrow(input_bed_nchr))
             input_region_nchr <- apply (input_bed_nchr,1,function(x){
                             
                              trim_blank <- function(x){
@@ -40,11 +40,11 @@ if(length(unique(input_bed$V1)) > 0) {
                             }) 
 
             region_all <- paste(input_region_nchr,collapse=' ')  
-
             sh <- paste('tabix ',opts$database,'/Eigen_hg19_noncoding_annot_chr',nchr,'.tab.bgz ',
                     region_all,' > ','eigen_score_',nchr,'.txt',sep='')     
-           
-            system(sh) }
+            #print(sh)
+            write.table(sh,paste(nchr,'_sh.txt',sep=''),quote=F,row.names=F,col.names=F)
+            system(paste('sh ',nchr,'_sh.txt',sep=''),intern =TRUE) }
         
         })    
   

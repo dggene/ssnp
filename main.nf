@@ -9,6 +9,7 @@ params.spidex_file="$database/spidex_public_noncommercial_v1_0.tab.gz"
 params.gwavas_file="$database/gwava_scores.bed.gz"
 params.hg19genome ="$database/uchr1-x.fasta"
 params.sce_database ="$database/SCE"
+params.PrimateAI_database="$database/PrimateAI_scores_v0.2.bed.gz"
 
 params.eigen_database="$database/eigen/eigen_noncoding"
 params.annovar_database="/DG/database/genomes/Homo_sapiens/hg19/annovar"
@@ -53,7 +54,7 @@ process vcftobed{
     """
 }
 
-output_bed.into{input0_bed;input1_bed;input2_bed;input3_bed;input4_bed;input5_bed}
+output_bed.into{input0_bed;input1_bed;input2_bed;input3_bed;input4_bed;input5_bed;input6_bed}
 
 process gwasdb2{
     conda="tabix"
@@ -71,6 +72,25 @@ process gwasdb2{
     cat head.txt gwasdb_res_sub.tsv > gwasdb_res.tsv
     """
 }
+
+
+process PrimateAI{
+    conda="tabix"
+    input:
+        file 'input.bed' from input6_bed
+    
+    output:
+        file 'primateai_res.tsv' into primateai_res
+
+    script:
+    """
+    echo \$PWD
+    zcat ${params.PrimateAI_database} |head -1 >head.txt
+    tabix ${params.PrimateAI_database} -B input.bed > primateai_res_sub.tsv
+    cat head.txt primateai_res_sub.tsv > primateai_res.tsv
+    """
+}
+
 
 process spidex{
     conda="tabix"
@@ -107,6 +127,7 @@ process gwava{
         cat head.txt gwava_res_sub.tsv  > gwava_res.tsv
     """
 }
+
 
 
 process sce{
@@ -218,7 +239,7 @@ process cadd{
 }
 
 cadd_res.into{cadd_res0;cadd_res1}
-cadd_res0.splitCsv(header:true,sep:'\t').set{transcripts}
+cadd_res0.splitCsv(header:true,by:1,sep:'\t').set{transcripts}
 
 
 process getSeq{
@@ -268,6 +289,7 @@ process merge_res{
         file('silva.mat') from silva_res1
         file('gwava.res') from gwava_res
         file('sce.res') from sce_res
+        file('primateai.res') from primateai_res
 
 
     output:
@@ -275,7 +297,7 @@ process merge_res{
 
     """
     echo \$PWD
-    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -w gwasdb.res -v gwava.res -b sce.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -m silva.mat -t trans.res
+    Rscript $baseDir/bin/annotation_rbind.R -r input.bed -w gwasdb.res -v gwava.res -b sce.res -e eigen.res -s spidex.res -a annovar.res -c cadd.score -i silva.score -m silva.mat -p primateai.res -t trans.res
     """
 }
 
