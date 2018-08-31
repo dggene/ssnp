@@ -152,6 +152,31 @@ process silva{
 
 }
 
+//*
+process expecto{
+    conda = "/DG/programs/beta/rel/anaconda2/envs/expecto"
+    input:
+        file 'input.bed' from input4_bed
+
+    output:
+        file 'gwava_res.tsv' into gwava_res
+
+    script:
+    """
+        echo \$PWD
+        run_dir=\$PWD
+        cd /DG/home/pyl/ExPecto
+        python chromatin.py ./example/example.vcf
+        python predict.py --coorFile ./example/example.vcf \
+            --geneFile ./example/example.vcf.bed.sorted.bed.closestgene \
+            --snpEffectFilePattern ./example/example.vcf.shift_SHIFT.diff.h5 \
+            --modelList ./resources/modellist \
+            --output \$run_dir/output.csv
+    """
+}
+*//
+
+
 
 process cadd{
     conda="pysam"

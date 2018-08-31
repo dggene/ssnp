@@ -33,12 +33,14 @@ class Transcript(object):
     mtSeq = None
     strand = None
     fastaDb = None
+    data = None
 
-    def __init__(self, transcriptId, cdsLoc, ref, alt, fastaDb):
-        self.transcriptId = transcriptId
-        self.cdsLoc = int(cdsLoc)
-        self.ref = ref
-        self.alt = alt
+    def __init__(self, data, fastaDb):
+        self.transcriptId = data['FeatureID']
+        self.cdsLoc = int(data['CDSpos'])
+        self.ref = data['Ref']
+        self.alt = data['Alt']
+        self.data = data
         self.fastaDb = fastaDb
         self._init_data()
 
@@ -63,18 +65,17 @@ class Transcript(object):
                         (self.transcriptId, self.fastaDb))
         exit(0)
         """
-        #使用idx索引查找序列对象
-        idx=SeqIO.index_db(self.fastaDb+'.idx')
+        # 使用idx索引查找序列对象
+        idx = SeqIO.index_db(self.fastaDb+'.idx')
         if self.transcriptId in idx:
-            record=idx[self.transcriptId]
-            self.seqRecord=record
+            record = idx[self.transcriptId]
+            self.seqRecord = record
             if 'N' in str(record.seq):
-                print('transcript_id:%s seq contains N'%(self.transcriptId))
+                print('transcript_id:%s seq contains N' % (self.transcriptId))
                 exit(0)
             return
         else:
             exit(0)
-
 
     def _init_record_strand(self):
         """
@@ -122,15 +123,15 @@ class Transcript(object):
         new_loc = cdsLoc
         count = len(seq_list)
         if count > length:
-            if cdsLoc <= length//2: #原来的位置在比较偏左
+            if cdsLoc <= length//2:  # 原来的位置在比较偏左
                 seq = seq_list[0:length]
                 new_loc = cdsLoc
-            elif (count-cdsLoc) <= length//2: #原来的位置在比较偏右
+            elif (count-cdsLoc) <= length//2:  # 原来的位置在比较偏右
                 seq = seq_list[0-length:]
                 new_loc = length-(count-cdsLoc)
             else:
                 offset = length % 2
-                left=cdsLoc-length//2-offset
+                left = cdsLoc-length//2-offset
                 seq = seq_list[left:left+length]
                 new_loc = length//2+offset
         else:
@@ -139,7 +140,7 @@ class Transcript(object):
         return (''.join(seq), new_loc)
 
     def render_seq_to_file(self, seq_id, seq, filename, footer=''):
-        #seq=seq.replace('N','')
+        # seq=seq.replace('N','')
         with open(filename, 'w') as f:
             f.write(seq_id+'\n')
             f.write(seq+'\n')
@@ -166,10 +167,9 @@ class Transcript(object):
             mt_seq = self.cut_seq(mt_seq, self.cdsLoc, length)
         self.render_seq_to_file(wt_seq_id, wt_seq, wt_filename)
         self.render_seq_to_file(mt_seq_id, mt_seq, mt_filename)
-        with open('transcript.id','w') as f:
+        with open('transcript.id', 'w') as f:
             f.write('transcript_id\n')
             f.write(self.transcriptId+'\n')
-        
 
     def generateRNASnpSeqFile(self, filename='seqss.txt'):
         """
@@ -195,32 +195,62 @@ class Transcript(object):
         mt_seq_id = self.get_default_seq_id()+"|MT|"+str(mt_new_loc)
         self.render_seq_to_file(mt_seq_id, mt_new_seq, mt_filename)
 
-def check_valid(transcript_id,cdsLoc):
+    def generatePerSnpFile(self, filename='persnp.txt'):
+        data=self.data
+        with open(filename, 'w') as FILE:
+            header = 'chr\tpos\tref\talt\tCDSpos\n'
+            FILE.write(header)
+            row = "%s\t%s\t%s\t%s\t%s" % (
+                data['Chrom'], data['Pos'], data['Ref'], data['Alt'], data['CDSpos'])
+            FILE.write(row)
+
+
+def check_valid(data, condition_str):
     '''
     校验cadd的结果是否规范
     '''
-    valid=True
-    if transcript_id == 'NA':
-        valid=False
-    if cdsLoc == 'NA':
-        valid=False
+    valid = True
+    if data['AnnoType'] != 'CodingTranscript':
+        return False
+    if data['FeatureID'] == 'NA':
+        return False
+    if data['CDSpos'] == 'NA':
+        return False
     return valid
 
+
+def get_data_dict(header, row):
+    column_names = header.split('\t')
+    column_values = row.split('\t')
+    data = {}
+    index = 0
+    for name in column_names:
+        value = column_values[index]
+        data[name] = value
+        index += 1
+    return data
+
+
 def run(args):
-    transcript_id=args.transcriptid
-    cdsLoc=args.cdsloc
-    ref=args.ref
-    alt=args.alt
-    if check_valid(transcript_id,cdsLoc):
-        tran=Transcript(transcript_id,cdsLoc,ref,alt,args.fasta)
+    with open(args.header) as FILE:
+        header = FILE.read().strip()
+    with open(args.input) as FILE:
+        row = FILE.read().strip()
+    data = get_data_dict(header=header, row=row)
+
+    if check_valid(data, args.condition):
+        tran = Transcript(data, args.fasta)
         tran.generateNormalSeqFile()
         tran.generateMenuRnaSeqFile()
         tran.generateRNASnpSeqFile()
         tran.generateRnaFoldSeqFile()
-        return 
+        tran.generatePerSnpFile()
+        return
     else:
-        #todo invalid
+        # todo invalid
+        print("invalid data %s"%(row))
         pass
+
 
 def main():
     ''' Main entry '''
@@ -228,18 +258,22 @@ def main():
     # _check_seafile()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-r','--ref',help='the cadd score file',required=True)
-    parser.add_argument('-a','--alt',help='the cadd score file',required=True)
-    parser.add_argument('-t','--transcriptid',help='the cadd score file',required=True)
-    parser.add_argument('-p','--cdsloc',help='the cadd score file',required=True)
-    parser.add_argument('-f','--fasta',help='the fasta file',required=True)
-    parser.add_argument('-o','--output',help='the output file',required=True)
+    parser.add_argument('-i', '--input', help='input data file', required=True)
+    parser.add_argument('-hf', '--header', help='header file', required=True)
+    parser.add_argument('-c', '--condition',
+                        help='the condition', required=False)
+    parser.add_argument('-f', '--fasta', help='the fasta file', required=True)
+    parser.add_argument(
+        '-o', '--output', help='the output file', required=True)
 
     if len(sys.argv) == 1:
         print(parser.format_help())
-        return
-
+        exit(123)
+    
     args = parser.parse_args()
+    if args.input == args.header:
+        print('skip first row ')
+        exit(0)
     run(args)
 
 
