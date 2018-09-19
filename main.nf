@@ -123,7 +123,7 @@ process gwava{
         echo \$PWD
         echo -e "chr\tstr\tend\trs\tgwava_s1\tgwava_s2\tgwava_s3" > head.txt
         awk '{ print "chr"\$1 "\t" \$2 "\t" \$3}' input.bed > chr_input.bed
-        tabix ${params.gwavas_file} -B chr_input.bed |sed  "s/^chr//g"> gwava_res_sub.tsv
+        tabix ${params.gwavas_file} -Bf chr_input.bed |sed  "s/^chr//g"> gwava_res_sub.tsv
         cat head.txt gwava_res_sub.tsv  > gwava_res.tsv
     """
 }
@@ -198,6 +198,7 @@ process annovar{
 
 process silva{
     conda='r-randomforest numpy perl'
+    validExitStatus 0,143
     input:
         file 'input.vcf' from adjust_vcf2
     
@@ -249,7 +250,7 @@ process getSeq{
         val row from transcripts
         
     when:
-        row.AnnoType=~'^CodingTranscript'
+        row.AnnoType=~'^CodingTranscript' && row.FeatureID !='NA'
 
     output:
         file('paste.res') optional true into paste_res

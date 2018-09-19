@@ -106,15 +106,15 @@ del_col=c(1,3,13,7,10,11,12,14,18,23,27,28,29,30,31,32,33,34,35,36,37,38,39,40,4
 63,64,65,66,73,74,75,94,95,96,97,100,102,107,108,109,110,111,112,113,114,115,124,125,126,127,128,129,130,131,132,133,134,
 135,136,137,138,139,140,141,142,143,144,145,146,147,148,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,
 168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,188,189,190,191,197,198,199,200,201,302,315,316,317,
-318,319,320,321,322,323,324,325,326,327,328,329,332,355,356,357,358,359,361,362,363,370,375)
+318,319,320,321,322,323,324,325,326,327,328,329,332,355:365,367:371,373:375,382,387)
 
 final_res <-all_res[-del_col]
 final_res_colname <- names(final_res)
 final_res_colname <-gsub('\\.y','',final_res_colname)
 final_res_colname <-gsub('\\.x','',final_res_colname)
 final_res_colname[179:181]=c('CADD_RawScore','CADD_PHRED','silva_rank')
-final_res_colname[c(2:6,215:218)] =c('chr','strat','end','ref','alt','remuRNA_MFE_wt','remuRNA_MFE_mu','remuRNA_dMFE','remuRNA_H')
-final_res_colname[209:214] = c('Rnasnp_max_k','Rnasnp_max_d','Rnasnp_max_p','Rnasnp_interval','Rnasnp_d','Rnasnp_p')
+final_res_colname[c(2:6,216:219)] =c('chr','start','end','ref','alt','remuRNA_MFE_wt','remuRNA_MFE_mu','remuRNA_dMFE','remuRNA_H')
+final_res_colname[210:215] = c('Rnasnp_max_k','Rnasnp_max_d','Rnasnp_max_p','Rnasnp_interval','Rnasnp_d','Rnasnp_p')
 
 colnames(final_res) = final_res_colname
 write.table(final_res,'all_res.txt',row.names=F,quote=F,sep='\t')
